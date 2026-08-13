@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log in — Showcase</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a class="brand" href="/index.html">
+        <span class="brand-mark">S</span>
+        Showcase
+      </a>
+      <div class="nav-links">
+        <a class="nav-link" href="index.html">Home</a>
+        <a class="nav-link" href="projects.html">Projects</a>
+      </div>
+      <div class="nav-actions" id="nav-actions"></div>
+      <button class="nav-toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <div class="auth-shell">
+      <div class="auth-card">
+        <h1>Welcome back</h1>
+        <p class="sub">Log in to manage your projects.</p>
+
+        <div class="alert alert-error" id="form-alert"></div>
+
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label for="identifier">Email or username</label>
+            <input type="text" id="identifier" name="identifier" autocomplete="username" required />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required />
+          </div>
+          <button class="btn btn-primary btn-block" type="submit" id="submit-btn">Log in</button>
+        </form>
+
+        <p class="form-footer">Don't have an account? <a href="register.html">Create one</a></p>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const form = document.getElementById('login-form');
+    const alertBox = document.getElementById('form-alert');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function showError(message) {
+      alertBox.textContent = message;
+      alertBox.classList.add('is-visible');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.classList.remove('is-visible');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Logging in…';
+
+      try {
+        await api.post('/api/auth/login', {
+          identifier: document.getElementById('identifier').value,
+          password: document.getElementById('password').value,
+        });
+        const next = new URLSearchParams(window.location.search).get('next');
+        window.location.href = next && next.startsWith('/') ? next : '/dashboard.html';
+      } catch (err) {
+        showError(err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Log in';
+      }
+    });
+
+    // If already logged in, skip straight to the dashboard.
+    (async () => {
+      try {
+        const { user } = await api.get('/api/auth/me');
+        if (user) window.location.href = '/dashboard.html';
+      } catch {
+        /* not logged in — stay on this page */
+      }
+    })();
+  </script>
+</body>
+</html>

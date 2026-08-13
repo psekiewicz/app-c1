@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create account — Showcase</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <a class="brand" href="/index.html">
+        <span class="brand-mark">S</span>
+        Showcase
+      </a>
+      <div class="nav-links">
+        <a class="nav-link" href="index.html">Home</a>
+        <a class="nav-link" href="projects.html">Projects</a>
+      </div>
+      <div class="nav-actions" id="nav-actions"></div>
+      <button class="nav-toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <div class="auth-shell">
+      <div class="auth-card">
+        <h1>Create your account</h1>
+        <p class="sub">Start publishing your projects in minutes.</p>
+
+        <div class="alert alert-error" id="form-alert"></div>
+
+        <form id="register-form" novalidate>
+          <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" autocomplete="username" required minlength="3" maxlength="24" />
+            <div class="hint">3-24 characters: letters, numbers, "_" or "-".</div>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" autocomplete="email" required />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="new-password" required minlength="8" />
+            <div class="hint">At least 8 characters.</div>
+          </div>
+          <div class="field">
+            <label for="confirm-password">Confirm password</label>
+            <input type="password" id="confirm-password" name="confirmPassword" autocomplete="new-password" required minlength="8" />
+          </div>
+          <button class="btn btn-primary btn-block" type="submit" id="submit-btn">Create account</button>
+        </form>
+
+        <p class="form-footer">Already have an account? <a href="login.html">Log in</a></p>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const form = document.getElementById('register-form');
+    const alertBox = document.getElementById('form-alert');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function showError(message) {
+      alertBox.textContent = message;
+      alertBox.classList.add('is-visible');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.classList.remove('is-visible');
+
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirm-password').value;
+      if (password !== confirmPassword) {
+        showError('Passwords do not match.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Creating account…';
+
+      try {
+        await api.post('/api/auth/register', {
+          username: document.getElementById('username').value,
+          email: document.getElementById('email').value,
+          password,
+        });
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showError(err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create account';
+      }
+    });
+
+    (async () => {
+      try {
+        const { user } = await api.get('/api/auth/me');
+        if (user) window.location.href = '/dashboard.html';
+      } catch {
+        /* not logged in — stay on this page */
+      }
+    })();
+  </script>
+</body>
+</html>

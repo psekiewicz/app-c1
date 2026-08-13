@@ -1,0 +1,20 @@
+{
+  "name": "app-c1",
+  "version": "1.0.0",
+  "description": "A professional multi-page website for publishing and showcasing projects, with a full working authentication system.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  },
+  "license": "MIT"
+}

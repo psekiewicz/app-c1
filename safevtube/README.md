@@ -35,6 +35,22 @@ Switch **Avatar mode** to *Dot-cloud face* in the dashboard. A **tracker** page 
 - The tracker's camera preview is off by default; it shows only the dot face.
 - Model: MediaPipe `face_landmarker.task` (Apache-2.0) is bundled in `packages/web/public/models`; the WASM runtime is copied from `@mediapipe/tasks-vision` at build time. No CDN needed.
 
+## 3D models (Blender → .glb)
+
+Pick **3D model** mode and upload a `.glb`. In Blender: *File → Export → glTF 2.0*, format **glTF Binary (.glb)**, enable **Shape Keys** (and *Skinning* if you have bones), disable animation, +Y up, apply modifiers.
+
+| In your rig | What drives it |
+|---|---|
+| Shape keys named like ARKit blendshapes (`eyeBlinkLeft`, `jawOpen`, `mouthSmileLeft`, … all 52) | Full tracker output (the "perfect sync" convention used by VRoid/VSeeFace-style models) |
+| Simple keys: `Blink`, `Blink_L`, `Blink_R`, `aa`/`A`, `ou`, `Smile`, `LookUp/Down/Left/Right` | Simplified parameters |
+| Bones containing `Head`, `Neck` (40 % of the rotation), `Jaw`, `LeftEye`/`RightEye` | Head pose, jaw opening and gaze (only used when there is no matching shape key) |
+
+No head bone: the whole model tilts slightly. Use *Zoom* and *Vertical offset* to frame it. Full-body humanoids are framed head-and-shoulders automatically; head-only models are fit whole. Files are loaded from embedded data only (external URLs inside a model are blocked); a model that fails to load means a black screen.
+
+## 2D puppet (layered PNGs)
+
+Pick **2D layered puppet** and add transparent PNG layers that share one canvas size (export aligned layers from Krita/Photoshop/Clip Studio). Roles: `body`, `hair`, `head`, `eyesOpen`, `eyesClosed`, `brows`, `mouthClosed`, `mouthHalf`, `mouthOpen`, `mouthSmile`, `accessory`. Eyes swap on blink, mouth layers swap by jaw opening, and the head layers rotate around the pivot you set. Draw order = list order. (This is not Live2D: its runtime is proprietary and can't be bundled.)
+
 ## Safety model
 
 The overlay shows the avatar only when **all** are true; otherwise it is black:
@@ -44,7 +60,7 @@ The overlay shows the avatar only when **all** are true; otherwise it is black:
 | Armed | You haven't pressed **Go live** (resets on every page load) |
 | Panic | Panic button / hotkey (default `Escape`) is latched |
 | Mic healthy (PNG mode) | Track ended/muted or audio context stopped |
-| Face tracked (dots mode) | Tracker offline/stale (>1 s) or no face detected |
+| Face tracked (dots / 3D / 2D modes) | Tracker offline/stale (>1 s) or no face detected |
 | Dashboard fresh | No frame from the dashboard for 3 s, or its tab closes (instant) |
 | Overlay fresh | Overlay hasn't heard from the server for 2.5 s, or its socket drops |
 
@@ -60,4 +76,5 @@ The decision lives in `packages/shared/src/safety.ts` (unit-tested) and is enfor
 
 - In the browser, hotkeys work only while the dashboard window is focused; use the desktop app for global hotkeys.
 - Keep the dashboard tab open (not minimised); an active mic keeps it from being throttled in most browsers.
+- Tracker→model sign conventions (yaw/pitch/roll direction, *Mirror movement*) are untested with a real camera; flip the mirror toggle if movement is reversed.
 - Ideas: blink/bounce presets, multi-layer avatars, Twitch redeems (needs OAuth), OBS WebSocket scene switching.

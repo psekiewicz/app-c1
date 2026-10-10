@@ -6,7 +6,9 @@ import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   blackoutReason,
+  ARKIT_BLENDSHAPES,
   EMPTY_FACE,
+  isTrackedMode,
   type FaceParams,
   type FaceRecord,
   type ClientMessage,
@@ -70,7 +72,7 @@ function currentExpressionId(now: number, frame: DashboardFrame | undefined): st
 }
 
 function compute(now = Date.now()) {
-  const dots = settings.mode === "dots";
+  const dots = isTrackedMode(settings.mode);
   const reason = blackoutReason(lastFrame, now, dots ? { face: lastFace } : {});
   const live = reason === null;
   const output: OverlayOutput = {
@@ -87,6 +89,13 @@ function compute(now = Date.now()) {
 }
 
 const clamp = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : 0);
+const BLEND_NAMES = new Set<string>(ARKIT_BLENDSHAPES);
+function cleanBlend(b: unknown): Record<string, number> | undefined {
+  if (!b || typeof b !== "object") return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(b)) if (BLEND_NAMES.has(k)) out[k] = clamp(v, 0, 1);
+  return out;
+}
 function cleanFace(p: Partial<FaceParams> | undefined): FaceParams {
   if (!p || p.faceFound !== true) return EMPTY_FACE;
   const a = Math.PI;
@@ -96,6 +105,7 @@ function cleanFace(p: Partial<FaceParams> | undefined): FaceParams {
     jawOpen: clamp(p.jawOpen, 0, 1), blinkL: clamp(p.blinkL, 0, 1), blinkR: clamp(p.blinkR, 0, 1),
     smile: clamp(p.smile, 0, 1), browUp: clamp(p.browUp, 0, 1), browDown: clamp(p.browDown, 0, 1),
     pucker: clamp(p.pucker, 0, 1), lookX: clamp(p.lookX, -1, 1), lookY: clamp(p.lookY, -1, 1),
+    blend: cleanBlend(p.blend),
   };
 }
 
@@ -153,9 +163,9 @@ app.put("/api/settings", express.json({ limit: "256kb" }), (req, res) => {
   res.json(settings);
 });
 
-app.post("/api/assets", express.raw({ type: () => true, limit: "5mb" }), (req, res) => {
+app.post("/api/assets", express.raw({ type: () => true, limit: "50mb" }), (req, res) => {
   const name = Buffer.isBuffer(req.body) ? saveAsset(req.body) : null;
-  if (!name) return void res.status(400).json({ error: "Only PNG, WebP or GIF images up to 5 MB" });
+  if (!name) return void res.status(400).json({ error: "Only PNG/WebP/GIF images (up to 5 MB) or GLB models (up to 50 MB)" });
   res.json({ asset: name });
 });
 app.use("/media", express.static(ASSET_DIR, { index: false, dotfiles: "deny" }));
@@ -167,7 +177,7 @@ else app.get("/", (_req, res) => res.send("Web UI not built. Run `npm run build`
 const server = TLS_KEY && TLS_CERT
   ? https.createServer({ key: fs.readFileSync(TLS_KEY), cert: fs.readFileSync(TLS_CERT) }, app)
   : http.createServer(app);
-const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 8192 });
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url ?? "", "http://x");

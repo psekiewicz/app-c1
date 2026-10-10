@@ -24,8 +24,10 @@ function toParams(blend: Cat, m: ArrayLike<number> | undefined): FaceParams {
     pitch = Math.asin(Math.max(-1, Math.min(1, -c2[1])));
     roll = Math.atan2(c0[1], c1[1]);
   }
+  const blendAll: Record<string, number> = {};
+  for (const c of blend) if (c.categoryName !== "_neutral") blendAll[c.categoryName] = Math.round(c.score * 1000) / 1000;
   return {
-    faceFound: true, yaw, pitch, roll,
+    faceFound: true, yaw, pitch, roll, blend: blendAll,
     jawOpen: b("jawOpen"),
     blinkL: b("eyeBlinkLeft"), blinkR: b("eyeBlinkRight"),
     smile: (b("mouthSmileLeft") + b("mouthSmileRight")) / 2,
@@ -39,12 +41,16 @@ function toParams(blend: Cat, m: ArrayLike<number> | undefined): FaceParams {
 
 function lerpFace(prev: FaceParams, next: FaceParams, k: number): FaceParams {
   if (!prev.faceFound) return next;
-  const o = { ...next } as Record<string, number | boolean>;
+  const out: FaceParams = { ...next };
   for (const key of Object.keys(next) as (keyof FaceParams)[]) {
-    if (key === "faceFound") continue;
-    o[key] = (prev[key] as number) + ((next[key] as number) - (prev[key] as number)) * k;
+    const n = next[key], p = prev[key];
+    if (typeof n === "number" && typeof p === "number") (out as unknown as Record<string, number>)[key] = p + (n - p) * k;
   }
-  return o as unknown as FaceParams;
+  if (next.blend) {
+    out.blend = {};
+    for (const [name, v] of Object.entries(next.blend)) out.blend[name] = Math.round(((prev.blend?.[name] ?? v) + (v - (prev.blend?.[name] ?? v)) * k) * 1000) / 1000;
+  }
+  return out;
 }
 
 function Tracker() {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_SETTINGS, TalkDetector, type DashboardStatus, type Expression, type Settings } from "@safevtube/shared";
+import { DEFAULT_SETTINGS, PUPPET_ROLES, TalkDetector, isTrackedMode, type DashboardStatus, type Expression, type PuppetPart, type Settings } from "@safevtube/shared";
 import { connect } from "./ws";
 import { useMic } from "./useMic";
 
@@ -156,26 +156,93 @@ export function App() {
             <select value={settings.mode} onChange={(e) => save({ ...settings, mode: e.target.value as Settings["mode"] })}>
               <option value="png">PNGtuber (mic-driven image)</option>
               <option value="dots">Dot-cloud face (camera tracker)</option>
+              <option value="model3d">3D model .glb (camera tracker)</option>
+              <option value="puppet2d">2D layered puppet (camera tracker)</option>
             </select>
           </label>
         </div>
         {settings.mode === "dots" && (
+          <div className="row">
+            <label>Dots ({settings.dotCount})
+              <input type="range" min="500" max="8000" step="250" value={settings.dotCount}
+                onChange={(e) => setSettings({ ...settings, dotCount: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+            </label>
+            <label>Dot size ({settings.dotSize})
+              <input type="range" min="1" max="6" step="0.5" value={settings.dotSize}
+                onChange={(e) => setSettings({ ...settings, dotSize: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+            </label>
+            <label>Color<input type="color" value={settings.dotColor} onChange={(e) => save({ ...settings, dotColor: e.target.value })} /></label>
+          </div>
+        )}
+        {settings.mode === "model3d" && (
           <>
             <p className="muted">
-              A generic dot face is animated from head angles and expression numbers sent by the <b>tracker</b>.
-              Your video and real face shape never reach OBS or this server. Face lost or tracker offline = black screen.
+              Upload a <b>.glb</b> exported from Blender (glTF Binary, with Shape Keys). Shape keys named like ARKit blendshapes
+              (<code>eyeBlinkLeft</code>, <code>jawOpen</code>, …) get the full tracker output; bones named Head / Neck / Jaw / LeftEye / RightEye get head pose and gaze.
+              Models load from the file only; if it fails to load the screen stays black.
             </p>
             <div className="row">
-              <label>Dots ({settings.dotCount})
-                <input type="range" min="500" max="8000" step="250" value={settings.dotCount}
-                  onChange={(e) => setSettings({ ...settings, dotCount: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+              <label className="up">
+                Model (.glb, max 50 MB) {settings.model3dAsset && <span className="ok">loaded: {settings.model3dAsset.slice(0, 8)}…</span>}
+                <input type="file" accept=".glb,model/gltf-binary" onChange={async (ev) => {
+                  const f = ev.target.files?.[0];
+                  if (!f) return;
+                  try { setErr(""); save({ ...settings, model3dAsset: await uploadAsset(f) }); } catch (e) { setErr(e instanceof Error ? e.message : "Upload failed"); }
+                }} />
               </label>
-              <label>Dot size ({settings.dotSize})
-                <input type="range" min="1" max="6" step="0.5" value={settings.dotSize}
-                  onChange={(e) => setSettings({ ...settings, dotSize: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+              <label>Zoom ({settings.modelZoom.toFixed(2)})
+                <input type="range" min="0.3" max="3" step="0.05" value={settings.modelZoom}
+                  onChange={(e) => setSettings({ ...settings, modelZoom: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
               </label>
-              <label>Color<input type="color" value={settings.dotColor} onChange={(e) => save({ ...settings, dotColor: e.target.value })} /></label>
+              <label>Vertical offset ({settings.modelY.toFixed(2)})
+                <input type="range" min="-1.5" max="1.5" step="0.05" value={settings.modelY}
+                  onChange={(e) => setSettings({ ...settings, modelY: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+              </label>
             </div>
+          </>
+        )}
+        {settings.mode === "puppet2d" && (
+          <>
+            <p className="muted">
+              Add transparent PNG layers that all share the <b>same canvas size</b> (export from Krita/Photoshop with layers aligned). Draw order = list order.
+              Eyes swap open/closed on blink; mouth layers swap by how open your mouth is; the rest follow your head.
+            </p>
+            {settings.puppet.map((p) => (
+              <div className="row" key={p.id}>
+                <select value={p.role} onChange={(e) => save({ ...settings, puppet: settings.puppet.map((x) => (x.id === p.id ? { ...x, role: e.target.value as PuppetPart["role"] } : x)) })}>
+                  {PUPPET_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                {p.asset && <img src={`/media/${p.asset}`} alt="" style={{ height: 40, background: "#000" }} />}
+                <input type="file" accept="image/png,image/webp,image/gif" onChange={async (ev) => {
+                  const f = ev.target.files?.[0];
+                  if (!f) return;
+                  try { setErr(""); const asset = await uploadAsset(f); save({ ...settings, puppet: settings.puppet.map((x) => (x.id === p.id ? { ...x, asset } : x)) }); } catch (e) { setErr(e instanceof Error ? e.message : "Upload failed"); }
+                }} />
+                <button onClick={() => save({ ...settings, puppet: settings.puppet.filter((x) => x.id !== p.id) })}>Remove</button>
+              </div>
+            ))}
+            <div className="row">
+              <button onClick={() => save({ ...settings, puppet: [...settings.puppet, { id: "p" + Math.random().toString(36).slice(2, 8), role: "head" }] })}>+ Add layer</button>
+              <label>Head pivot X ({settings.puppetPivotX.toFixed(2)})
+                <input type="range" min="0" max="1" step="0.01" value={settings.puppetPivotX}
+                  onChange={(e) => setSettings({ ...settings, puppetPivotX: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+              </label>
+              <label>Head pivot Y ({settings.puppetPivotY.toFixed(2)})
+                <input type="range" min="0" max="1" step="0.01" value={settings.puppetPivotY}
+                  onChange={(e) => setSettings({ ...settings, puppetPivotY: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+              </label>
+            </div>
+          </>
+        )}
+        {isTrackedMode(settings.mode) && (
+          <>
+            <div className="row">
+              <label className="row"><input type="checkbox" checked={settings.modelMirror} onChange={(e) => save({ ...settings, modelMirror: e.target.checked })} /> Mirror movement (selfie-style)</label>
+            </div>
+            <p className="muted">
+              The model is driven by the <b>tracker</b>: only head angles and expression numbers are sent. Your video and real face shape never reach OBS or this server.
+              Face lost or tracker offline = black screen.
+            </p>
             <p>Tracker: <span className={status?.tracker ? "ok" : "bad"}>{status?.tracker ? "connected" : "not connected"}</span></p>
             <p className="muted">
               Open one of these on the device with the camera (same PC, or a second device — phone/laptop — so the camera never touches your streaming PC):
@@ -192,7 +259,7 @@ export function App() {
         )}
       </section>
 
-      <section className="card">
+      {settings.mode === "png" && <section className="card">
         <h2>Microphone</h2>
         <div className="row">
           <button onClick={() => mic.start()}>{mic.ok ? "Restart mic" : "Enable mic"}</button>
@@ -218,9 +285,9 @@ export function App() {
             onChange={(e) => setSettings({ ...settings, releaseMs: Number(e.target.value) })}
             onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
         </label>
-      </section>
+      </section>}
 
-      <section className="card">
+      {settings.mode === "png" && <section className="card">
         <h2>Expressions</h2>
         {settings.expressions.map((e) => (
           <div key={e.id} className={`expr ${e.id === expressionId ? "active" : ""}`}>
@@ -247,7 +314,7 @@ export function App() {
           </div>
         ))}
         <button onClick={addExpr}>+ Add expression</button>
-      </section>
+      </section>}
 
       <section className="card">
         <h2>Twitch (read-only chat)</h2>

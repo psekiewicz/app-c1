@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { DEFAULT_SETTINGS, PUPPET_ROLES, type Expression, type PuppetPart, type PuppetRole, type Settings } from "@safevtube/shared";
+import { BINDING_PROPS, DEFAULT_SETTINGS, PUPPET_PARAMS, type BindingProp, type Condition, type Expression, type PuppetBinding, type PuppetLayer, type PuppetParam, type PuppetState, type Settings } from "@safevtube/shared";
 
 export const DATA_DIR = path.resolve(process.env.SAFEVTUBE_DATA ?? "data");
 export const ASSET_DIR = path.join(DATA_DIR, "assets");
@@ -35,13 +35,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     modelZoom: num(r.modelZoom, 0.2, 5, DEFAULT_SETTINGS.modelZoom),
     modelY: num(r.modelY, -3, 3, DEFAULT_SETTINGS.modelY),
     modelMirror: r.modelMirror !== false,
-    puppet: (Array.isArray(r.puppet) ? r.puppet.slice(0, 40) : [])
-      .map((p: any): PuppetPart => ({
-        id: str(p?.id, 40).replace(/[^\w-]/g, ""),
-        role: (PUPPET_ROLES as readonly string[]).includes(p?.role) ? (p.role as PuppetRole) : "accessory",
-        asset: assetName(p?.asset, IMG_RE),
-      }))
-      .filter((p) => p.id),
+    puppet: (Array.isArray(r.puppet) ? r.puppet.slice(0, 60) : []).map(sanitizeLayer).filter((l): l is PuppetLayer => !!l),
     puppetPivotX: num(r.puppetPivotX, 0, 1, DEFAULT_SETTINGS.puppetPivotX),
     puppetPivotY: num(r.puppetPivotY, 0, 1, DEFAULT_SETTINGS.puppetPivotY),
     dotCount: Math.round(num(r.dotCount, 500, 8000, DEFAULT_SETTINGS.dotCount)),
@@ -54,6 +48,46 @@ export function sanitizeSettings(raw: unknown): Settings {
     panicHotkey: str(r.panicHotkey, 20, DEFAULT_SETTINGS.panicHotkey) || DEFAULT_SETTINGS.panicHotkey,
     twitchChannel: str(r.twitchChannel, 25).toLowerCase().replace(/[^a-z0-9_]/g, ""),
     twitchCooldownMs: num(r.twitchCooldownMs, 0, 600_000, DEFAULT_SETTINGS.twitchCooldownMs),
+  };
+}
+
+const arr = (v: unknown, max: number): any[] => (Array.isArray(v) ? v.slice(0, max) : []);
+const safeId = (v: unknown) => str(v, 40).replace(/[^\w-]/g, "");
+
+function sanitizeConditions(v: unknown): Condition[] {
+  return arr(v, 6)
+    .filter((c) => (PUPPET_PARAMS as readonly string[]).includes(c?.param) && (c?.op === ">" || c?.op === "<"))
+    .map((c) => ({ param: c.param as PuppetParam, op: c.op as ">" | "<", value: num(c.value, -1000, 1000, 0) }));
+}
+
+function sanitizeLayer(l: any): PuppetLayer | null {
+  const id = safeId(l?.id);
+  if (!id) return null;
+  const area = l?.pupil?.area;
+  return {
+    id,
+    name: str(l?.name, 60, "Layer"),
+    asset: assetName(l?.asset, IMG_RE),
+    states: arr(l?.states, 16).map((s): PuppetState => ({ id: safeId(s?.id) || "s", asset: assetName(s?.asset, IMG_RE), when: sanitizeConditions(s?.when) })),
+    bindings: arr(l?.bindings, 10)
+      .filter((b) => (PUPPET_PARAMS as readonly string[]).includes(b?.param) && (BINDING_PROPS as readonly string[]).includes(b?.prop))
+      .map((b): PuppetBinding => ({
+        param: b.param as PuppetParam, prop: b.prop as BindingProp,
+        inMin: num(b.inMin, -1000, 1000, 0), inMax: num(b.inMax, -1000, 1000, 1),
+        outMin: num(b.outMin, -5000, 5000, 0), outMax: num(b.outMax, -5000, 5000, 0),
+      })),
+    visibleWhen: sanitizeConditions(l?.visibleWhen),
+    follow: l?.follow === "head" ? "head" : "none",
+    depth: num(l?.depth, 0, 0.3, 0.03),
+    pivotX: typeof l?.pivotX === "number" ? num(l.pivotX, 0, 1, 0.5) : undefined,
+    pivotY: typeof l?.pivotY === "number" ? num(l.pivotY, 0, 1, 0.5) : undefined,
+    pupil: area
+      ? {
+          area: { x: num(area.x, -10000, 10000, 0), y: num(area.y, -10000, 10000, 0), w: num(area.w, 1, 10000, 40), h: num(area.h, 1, 10000, 40) },
+          clip: l.pupil.clip !== false,
+          scale: num(l.pupil.scale, 0.1, 5, 1),
+        }
+      : undefined,
   };
 }
 

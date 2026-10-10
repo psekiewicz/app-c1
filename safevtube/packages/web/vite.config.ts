@@ -11,7 +11,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      input: { main: resolve(__dirname, "index.html"), overlay: resolve(__dirname, "overlay.html"), tracker: resolve(__dirname, "tracker.html") },
+      input: { main: resolve(__dirname, "index.html"), overlay: resolve(__dirname, "overlay.html"), tracker: resolve(__dirname, "tracker.html"), puppet: resolve(__dirname, "puppet.html") },
     },
   },
 });

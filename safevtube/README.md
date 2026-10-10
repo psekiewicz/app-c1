@@ -47,9 +47,19 @@ Pick **3D model** mode and upload a `.glb`. In Blender: *File → Export → glT
 
 No head bone: the whole model tilts slightly. Use *Zoom* and *Vertical offset* to frame it. Full-body humanoids are framed head-and-shoulders automatically; head-only models are fit whole. Files are loaded from embedded data only (external URLs inside a model are blocked); a model that fails to load means a black screen.
 
-## 2D puppet (layered PNGs)
+## 2D puppet editor (Live2D-style rig from PNG layers)
 
-Pick **2D layered puppet** and add transparent PNG layers that share one canvas size (export aligned layers from Krita/Photoshop/Clip Studio). Roles: `body`, `hair`, `head`, `eyesOpen`, `eyesClosed`, `brows`, `mouthClosed`, `mouthHalf`, `mouthOpen`, `mouthSmile`, `accessory`. Eyes swap on blink, mouth layers swap by jaw opening, and the head layers rotate around the pivot you set. Draw order = list order. (This is not Live2D: its runtime is proprietary and can't be bundled.)
+Pick **2D layered puppet** and open the **puppet editor** (`/puppet.html`, linked from the dashboard). It edits the rig with a live preview (test sliders or *Auto demo*) rendered by the same code as the overlay.
+
+- **Layers** share one canvas size (export aligned layers from Krita/Photoshop/Clip Studio); drawn in list order.
+- **Actions: swap image when…** — e.g. *Right eye closed → image 3*: add an action, upload the image, pick the condition (`blinkR > 0.5`, or a preset). The first matching action wins; an action without an image hides the layer.
+- **Visible only when…** — e.g. a pupil that hides while its eye is closed, or a blush layer shown while smiling.
+- **Pupils** (`+ Pupil`) — an image that slides inside an elliptical area you draw on the canvas, following your gaze. Optional clipping to the area.
+- **Bindings** — map a parameter range onto a layer's x / y / rotate / scale / opacity (e.g. `jawOpen 0→1` moves a chin layer 0→20 px).
+- **Follows the head** with parallax depth and a pivot you click on the canvas.
+- Parameters: head turn/nod/tilt (°), mouth open, blink (each eye), smile, brows, lips pucker, gaze. "Left/right eye" is *your* left/right; *Mirror movement* flips turn, tilt and gaze like a selfie camera.
+
+Not Live2D itself (its runtime/format is proprietary and can't be bundled), but the same idea: parameters drive layers. Missing images or a lost face mean a black screen, like every other mode.
 
 ## Safety model
 

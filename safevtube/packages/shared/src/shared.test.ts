@@ -45,3 +45,44 @@ test("dots mode requires a fresh tracker with a detected face, not a mic", () =>
   assert.ok(blackoutReason(rec, 1100, { face: face(false, 1050) }));
   assert.ok(blackoutReason(rec, 1000 + FACE_STALE_MS + 1, { face: face(true, 1000) }));
 });
+
+import { pickAsset, bindingValue, pupilPosition, type PuppetLayer } from "./index";
+const layer = (o: Partial<PuppetLayer> = {}): PuppetLayer => ({
+  id: "l", name: "eyes", asset: "open.png", states: [], bindings: [], visibleWhen: [], follow: "none", depth: 0, ...o,
+});
+const face = (o: object = {}) => ({ ...EMPTY_FACE, faceFound: true, ...o });
+
+test("state swaps image when its conditions hold (right eye closed -> image 3)", () => {
+  const l = layer({ states: [{ id: "s", asset: "img3.png", when: [{ param: "blinkR", op: ">", value: 0.5 }] }] });
+  assert.equal(pickAsset(l, face({ blinkR: 0.2 }), true), "open.png");
+  assert.equal(pickAsset(l, face({ blinkR: 0.9 }), true), "img3.png");
+});
+
+test("visibleWhen hides the layer, a state without asset hides it too", () => {
+  const l = layer({ visibleWhen: [{ param: "smile", op: ">", value: 0.5 }] });
+  assert.equal(pickAsset(l, face({ smile: 0.1 }), true), null);
+  assert.equal(pickAsset(l, face({ smile: 0.8 }), true), "open.png");
+  const h = layer({ states: [{ id: "s", when: [{ param: "blinkL", op: ">", value: 0.5 }] }] });
+  assert.equal(pickAsset(h, face({ blinkL: 1 }), true), null);
+});
+
+test("mirror flips head turn and gaze, not blink sides", () => {
+  const l = layer({ states: [{ id: "s", asset: "turn.png", when: [{ param: "yaw", op: ">", value: 10 }] }] });
+  const f = face({ yaw: (20 * Math.PI) / 180 });
+  assert.equal(pickAsset(l, f, true), "turn.png");
+  assert.equal(pickAsset(l, f, false), "open.png");
+});
+
+test("binding maps and clamps parameter ranges", () => {
+  const b = { param: "jawOpen" as const, prop: "y" as const, inMin: 0, inMax: 1, outMin: 0, outMax: 40 };
+  assert.equal(bindingValue(b, face({ jawOpen: 0.5 }), true), 20);
+  assert.equal(bindingValue(b, face({ jawOpen: 2 }), true), 40);
+});
+
+test("pupil stays inside its elliptical area", () => {
+  const a = { x: 100, y: 100, w: 40, h: 20 };
+  assert.deepEqual(pupilPosition(a, 0, 0), { x: 120, y: 110 });
+  assert.deepEqual(pupilPosition(a, 1, 0), { x: 140, y: 110 });
+  const p = pupilPosition(a, 1, 1); // corner of the box is outside the ellipse -> pulled in
+  assert.ok(((p.x - 120) / 20) ** 2 + ((p.y - 110) / 10) ** 2 <= 1.0001);
+});

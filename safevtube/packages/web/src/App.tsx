@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_SETTINGS, PUPPET_ROLES, TalkDetector, isTrackedMode, type DashboardStatus, type Expression, type PuppetPart, type Settings } from "@safevtube/shared";
+import { DEFAULT_SETTINGS, TalkDetector, isTrackedMode, type DashboardStatus, type Expression, type Settings } from "@safevtube/shared";
 import { connect } from "./ws";
 import { useMic } from "./useMic";
-
-async function uploadAsset(file: File): Promise<string> {
-  const r = await fetch("/api/assets", { method: "POST", body: file });
-  const j = await r.json();
-  if (!r.ok) throw new Error(j.error ?? "Upload failed");
-  return j.asset;
-}
+import { uploadAsset } from "./assets";
 
 export function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -204,34 +198,10 @@ export function App() {
         {settings.mode === "puppet2d" && (
           <>
             <p className="muted">
-              Add transparent PNG layers that all share the <b>same canvas size</b> (export from Krita/Photoshop with layers aligned). Draw order = list order.
-              Eyes swap open/closed on blink; mouth layers swap by how open your mouth is; the rest follow your head.
+              A Live2D-style rig made from PNG layers: swap images by conditions (e.g. <i>right eye closed → image 3</i>), move pupils inside an area,
+              bind parameters to position/rotation/scale. Currently {settings.puppet.length} layer(s).
             </p>
-            {settings.puppet.map((p) => (
-              <div className="row" key={p.id}>
-                <select value={p.role} onChange={(e) => save({ ...settings, puppet: settings.puppet.map((x) => (x.id === p.id ? { ...x, role: e.target.value as PuppetPart["role"] } : x)) })}>
-                  {PUPPET_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-                {p.asset && <img src={`/media/${p.asset}`} alt="" style={{ height: 40, background: "#000" }} />}
-                <input type="file" accept="image/png,image/webp,image/gif" onChange={async (ev) => {
-                  const f = ev.target.files?.[0];
-                  if (!f) return;
-                  try { setErr(""); const asset = await uploadAsset(f); save({ ...settings, puppet: settings.puppet.map((x) => (x.id === p.id ? { ...x, asset } : x)) }); } catch (e) { setErr(e instanceof Error ? e.message : "Upload failed"); }
-                }} />
-                <button onClick={() => save({ ...settings, puppet: settings.puppet.filter((x) => x.id !== p.id) })}>Remove</button>
-              </div>
-            ))}
-            <div className="row">
-              <button onClick={() => save({ ...settings, puppet: [...settings.puppet, { id: "p" + Math.random().toString(36).slice(2, 8), role: "head" }] })}>+ Add layer</button>
-              <label>Head pivot X ({settings.puppetPivotX.toFixed(2)})
-                <input type="range" min="0" max="1" step="0.01" value={settings.puppetPivotX}
-                  onChange={(e) => setSettings({ ...settings, puppetPivotX: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
-              </label>
-              <label>Head pivot Y ({settings.puppetPivotY.toFixed(2)})
-                <input type="range" min="0" max="1" step="0.01" value={settings.puppetPivotY}
-                  onChange={(e) => setSettings({ ...settings, puppetPivotY: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
-              </label>
-            </div>
+            <a className="btn" href="/puppet.html" target="_blank">Open puppet editor</a>
           </>
         )}
         {isTrackedMode(settings.mode) && (

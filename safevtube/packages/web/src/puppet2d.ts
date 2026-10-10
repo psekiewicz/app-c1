@@ -1,78 +1,100 @@
-import type { FaceParams, PuppetPart, PuppetRole } from "@safevtube/shared";
+import { allHold, bindingValue, pickAsset, pupilPosition, type FaceParams, type PuppetLayer } from "@safevtube/shared";
 
 /**
- * 2D layered puppet: transparent PNG layers of identical canvas size (as exported from Krita/Photoshop/Clip Studio),
- * switched and nudged by the face parameters. Not Live2D (its runtime is proprietary), but the same idea in miniature.
+ * Renderer for the 2D puppet rig (see shared/puppet.ts for the rules).
+ * Layers are plain transparent PNGs of identical canvas size, except pupils, which can be any size.
  */
 export interface LoadedPuppet {
-  layers: { role: PuppetRole; img: HTMLImageElement }[];
+  images: Map<string, HTMLImageElement>;
   w: number;
   h: number;
 }
 export interface PuppetView { pivotX: number; pivotY: number; mirror: boolean }
 
-export async function loadPuppet(parts: PuppetPart[]): Promise<LoadedPuppet | null> {
-  const withAsset = parts.filter((p) => p.asset);
-  if (!withAsset.length) return null;
+const assetsOf = (layers: PuppetLayer[]): string[] => [
+  ...new Set(layers.flatMap((l) => [l.asset, ...l.states.map((s) => s.asset)]).filter((a): a is string => !!a)),
+];
+
+export async function loadPuppet(layers: PuppetLayer[]): Promise<LoadedPuppet | null> {
+  const names = assetsOf(layers);
+  if (!names.length) return null;
   try {
-    const layers = await Promise.all(
-      withAsset.map(
-        (p) =>
-          new Promise<{ role: PuppetRole; img: HTMLImageElement }>((resolve, reject) => {
+    const entries = await Promise.all(
+      names.map(
+        (n) =>
+          new Promise<[string, HTMLImageElement]>((resolve, reject) => {
             const img = new Image();
-            img.onload = () => resolve({ role: p.role, img });
+            img.onload = () => resolve([n, img]);
             img.onerror = () => reject(new Error("image failed"));
-            img.src = `/media/${p.asset}`;
+            img.src = `/media/${n}`;
           }),
       ),
     );
-    return { layers, w: layers[0]!.img.naturalWidth, h: layers[0]!.img.naturalHeight };
+    const images = new Map(entries);
+    // Canvas size = first non-pupil layer image (all full-size layers share it).
+    const ref = layers.filter((l) => !l.pupil).flatMap((l) => [l.asset, ...l.states.map((s) => s.asset)]).find((a) => a && images.get(a)) ?? names[0]!;
+    const r = images.get(ref)!;
+    return { images, w: r.naturalWidth, h: r.naturalHeight };
   } catch {
-    return null; // any layer missing => no puppet => black
+    return null; // any image missing => nothing drawn => black
   }
 }
 
-const DEPTH: Partial<Record<PuppetRole, number>> = {
-  body: 0, hair: 0.022, head: 0.03, eyesOpen: 0.045, eyesClosed: 0.045, brows: 0.05,
-  mouthClosed: 0.04, mouthHalf: 0.04, mouthOpen: 0.04, mouthSmile: 0.04, accessory: 0.03,
-};
-
-function activeMouth(p: LoadedPuppet, f: FaceParams): PuppetRole | null {
-  const has = (r: PuppetRole) => p.layers.some((l) => l.role === r);
-  const order: PuppetRole[] =
-    f.jawOpen < 0.15 ? (f.smile > 0.45 ? ["mouthSmile", "mouthClosed"] : ["mouthClosed", "mouthSmile"])
-    : f.jawOpen < 0.45 ? ["mouthHalf", "mouthOpen", "mouthClosed"]
-    : ["mouthOpen", "mouthHalf", "mouthClosed"];
-  return order.find(has) ?? null;
+export function layoutOf(p: { w: number; h: number }, cw: number, ch: number) {
+  const s = Math.min(cw / p.w, ch / p.h);
+  return { s, ox: (cw - p.w * s) / 2, oy: (ch - p.h * s) / 2 };
 }
 
-export function drawPuppet(ctx: CanvasRenderingContext2D, p: LoadedPuppet, f: FaceParams, view: PuppetView, cw: number, ch: number, t: number) {
+export function drawPuppet(ctx: CanvasRenderingContext2D, p: LoadedPuppet, layers: PuppetLayer[], f: FaceParams, view: PuppetView, cw: number, ch: number, t: number) {
   ctx.clearRect(0, 0, cw, ch);
-  const s = Math.min(cw / p.w, ch / p.h);
+  const { s, ox, oy } = layoutOf(p, cw, ch);
   const m = view.mirror ? 1 : -1;
-  const blink = (f.blinkL + f.blinkR) / 2 > 0.55;
-  const hasClosedEyes = p.layers.some((l) => l.role === "eyesClosed");
-  const mouth = activeMouth(p, f);
   const breathe = Math.sin(t * 1.6);
-  for (const { role, img } of p.layers) {
-    if (role === "eyesOpen" && blink && hasClosedEyes) continue;
-    if (role === "eyesClosed" && !(blink || false)) continue;
-    if (role.startsWith("mouth") && role !== mouth) continue;
-    const depth = DEPTH[role] ?? 0.03;
-    const isEye = role === "eyesOpen" || role === "eyesClosed";
-    let dx = -f.yaw * m * depth * p.w * 2.5 + (isEye ? f.lookX * m * 0.012 * p.w : 0);
-    let dy = -f.pitch * depth * p.h * 2.5 + (isEye ? -f.lookY * 0.01 * p.h : 0);
-    if (role === "brows") dy -= (f.browUp - f.browDown) * 0.012 * p.h;
-    dy += breathe * (role === "body" ? 0.004 : 0.002) * p.h;
-    const rot = role === "body" ? f.roll * m * 0.05 : f.roll * m;
-    const px = view.pivotX * p.w, py = view.pivotY * p.h;
+  for (const layer of layers) {
+    const asset = pickAsset(layer, f, view.mirror);
+    const img = asset ? p.images.get(asset) : undefined;
+    if (!img) continue;
+
     ctx.save();
-    ctx.translate((cw - p.w * s) / 2, (ch - p.h * s) / 2);
+    ctx.translate(ox, oy);
     ctx.scale(s, s);
-    ctx.translate(dx + px, dy + py);
-    ctx.rotate(rot);
-    ctx.translate(-px, -py);
-    ctx.drawImage(img, 0, 0);
+    if (layer.follow === "head") {
+      const dx = -f.yaw * m * layer.depth * p.w * 2.5;
+      const dy = -f.pitch * layer.depth * p.h * 2.5 + breathe * 0.002 * p.h;
+      const px = view.pivotX * p.w, py = view.pivotY * p.h;
+      ctx.translate(dx + px, dy + py);
+      ctx.rotate(f.roll * m);
+      ctx.translate(-px, -py);
+    }
+    let bx = 0, by = 0, brot = 0, bscale = 1, bop = 1;
+    for (const b of layer.bindings) {
+      const v = bindingValue(b, f, view.mirror);
+      if (b.prop === "x") bx += v; else if (b.prop === "y") by += v;
+      else if (b.prop === "rotate") brot += v; else if (b.prop === "scale") bscale *= v; else bop *= v;
+    }
+    const lx = (layer.pivotX ?? view.pivotX) * p.w, ly = (layer.pivotY ?? view.pivotY) * p.h;
+    ctx.translate(bx, by);
+    if (brot || bscale !== 1) {
+      ctx.translate(lx, ly);
+      ctx.rotate((brot * Math.PI) / 180);
+      ctx.scale(bscale, bscale);
+      ctx.translate(-lx, -ly);
+    }
+    ctx.globalAlpha = Math.max(0, Math.min(1, bop));
+    if (layer.pupil) {
+      const { area, clip, scale } = layer.pupil;
+      if (clip) {
+        ctx.beginPath();
+        ctx.ellipse(area.x + area.w / 2, area.y + area.h / 2, area.w / 2, area.h / 2, 0, 0, Math.PI * 2);
+        ctx.clip();
+      }
+      const lookX = Math.max(-1, Math.min(1, f.lookX * m));
+      const c = pupilPosition(area, lookX, f.lookY);
+      const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+      ctx.drawImage(img, c.x - w / 2, c.y - h / 2, w, h);
+    } else {
+      ctx.drawImage(img, 0, 0);
+    }
     ctx.restore();
   }
 }

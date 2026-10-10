@@ -12,23 +12,12 @@ export interface Expression {
   durationMs: number;
 }
 
+import type { PuppetLayer } from "./puppet";
+
 export type Mode = "png" | "dots" | "model3d" | "puppet2d";
 
 /** Modes driven by the face tracker (everything except the mic-driven PNG avatar). */
 export const isTrackedMode = (m: Mode): boolean => m !== "png";
-
-export const PUPPET_ROLES = [
-  "body", "hair", "head", "eyesOpen", "eyesClosed", "brows",
-  "mouthClosed", "mouthHalf", "mouthOpen", "mouthSmile", "accessory",
-] as const;
-export type PuppetRole = (typeof PUPPET_ROLES)[number];
-
-/** One transparent PNG layer of a 2D puppet; all layers share the same canvas size, like a layered export. */
-export interface PuppetPart {
-  id: string;
-  role: PuppetRole;
-  asset?: string;
-}
 
 /** The 52 ARKit blendshape names (MediaPipe emits the same set). Used by 3D models with matching shape keys. */
 export const ARKIT_BLENDSHAPES = [
@@ -54,7 +43,7 @@ export interface Settings {
   modelY: number;
   /** Mirror yaw/roll/gaze (like a selfie camera). */
   modelMirror: boolean;
-  puppet: PuppetPart[];
+  puppet: PuppetLayer[];
   /** Rotation pivot of the 2D puppet's head layers, as a fraction of the layer canvas. */
   puppetPivotX: number;
   puppetPivotY: number;

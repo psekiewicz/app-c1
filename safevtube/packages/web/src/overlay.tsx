@@ -71,7 +71,7 @@ function PuppetFace({ out }: { out: OverlayOutput }) {
       const o = latest.current;
       if (c && ctx) {
         if (c.width !== c.clientWidth || c.height !== c.clientHeight) { c.width = c.clientWidth; c.height = c.clientHeight; }
-        if (puppet && o.face) drawPuppet(ctx, puppet, o.face, { pivotX: o.settings.puppetPivotX, pivotY: o.settings.puppetPivotY, mirror: o.settings.modelMirror }, c.width, c.height, performance.now() / 1000);
+        if (puppet && o.face) drawPuppet(ctx, puppet, o.settings.puppet, o.face, { pivotX: o.settings.puppetPivotX, pivotY: o.settings.puppetPivotY, mirror: o.settings.modelMirror }, c.width, c.height, performance.now() / 1000);
         else ctx.clearRect(0, 0, c.width, c.height);
       }
       raf = requestAnimationFrame(loop);

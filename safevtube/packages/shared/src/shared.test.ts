@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TalkDetector, blackoutReason, overlayShouldShow, DASHBOARD_STALE_MS } from "./index";
+import { TalkDetector, blackoutReason, overlayShouldShow, DASHBOARD_STALE_MS, FACE_STALE_MS, EMPTY_FACE } from "./index";
 import type { DashboardFrame } from "./index";
 
 const frame = (o: Partial<DashboardFrame> = {}): DashboardFrame => ({
@@ -35,4 +35,13 @@ test("talk detector has attack and release hysteresis", () => {
   assert.equal(d.update(0.0, 230), false);
   d.update(0.2, 300);
   assert.equal(d.update(0.09, 310), true); // between 70% and 100%: stays open
+});
+
+test("dots mode requires a fresh tracker with a detected face, not a mic", () => {
+  const rec = { frame: frame({ micOk: false }), receivedAt: 1000 };
+  const face = (found: boolean, at: number) => ({ params: { ...EMPTY_FACE, faceFound: found }, receivedAt: at });
+  assert.equal(blackoutReason(rec, 1100, { face: face(true, 1050) }), null);
+  assert.ok(blackoutReason(rec, 1100, { face: null }));
+  assert.ok(blackoutReason(rec, 1100, { face: face(false, 1050) }));
+  assert.ok(blackoutReason(rec, 1000 + FACE_STALE_MS + 1, { face: face(true, 1000) }));
 });

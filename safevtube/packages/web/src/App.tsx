@@ -21,6 +21,9 @@ export function App() {
   const [meter, setMeter] = useState(0);
   const [err, setErr] = useState("");
   const mic = useMic();
+  const [pairing, setPairing] = useState<{ lan: boolean; secure: boolean; urls: string[] } | null>(null);
+  useEffect(() => { fetch("/api/pairing").then((r) => r.json()).then(setPairing).catch(() => {}); }, []);
+  const resetPairing = () => fetch("/api/pairing/reset", { method: "POST" }).then((r) => r.json()).then(setPairing);
 
   // Latest values for the 10 Hz sender / key handler without re-subscribing.
   const live = useRef({ armed, panic, expressionId, talking, settings });
@@ -140,6 +143,49 @@ export function App() {
         <p className="muted">
           OBS Browser Source URL: <code>{location.origin}/overlay.html</code> · overlays connected: {status?.overlays ?? 0} · Twitch: {status?.twitch ?? "off"}
         </p>
+      </section>
+
+      <section className="card">
+        <h2>Avatar mode</h2>
+        <div className="row">
+          <label>Mode
+            <select value={settings.mode} onChange={(e) => save({ ...settings, mode: e.target.value as Settings["mode"] })}>
+              <option value="png">PNGtuber (mic-driven image)</option>
+              <option value="dots">Dot-cloud face (camera tracker)</option>
+            </select>
+          </label>
+        </div>
+        {settings.mode === "dots" && (
+          <>
+            <p className="muted">
+              A generic dot face is animated from head angles and expression numbers sent by the <b>tracker</b>.
+              Your video and real face shape never reach OBS or this server. Face lost or tracker offline = black screen.
+            </p>
+            <div className="row">
+              <label>Dots ({settings.dotCount})
+                <input type="range" min="500" max="8000" step="250" value={settings.dotCount}
+                  onChange={(e) => setSettings({ ...settings, dotCount: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+              </label>
+              <label>Dot size ({settings.dotSize})
+                <input type="range" min="1" max="6" step="0.5" value={settings.dotSize}
+                  onChange={(e) => setSettings({ ...settings, dotSize: Number(e.target.value) })} onMouseUp={() => save(settings)} onKeyUp={() => save(settings)} />
+              </label>
+              <label>Color<input type="color" value={settings.dotColor} onChange={(e) => save({ ...settings, dotColor: e.target.value })} /></label>
+            </div>
+            <p>Tracker: <span className={status?.tracker ? "ok" : "bad"}>{status?.tracker ? "connected" : "not connected"}</span></p>
+            <p className="muted">
+              Open one of these on the device with the camera (same PC, or a second device — phone/laptop — so the camera never touches your streaming PC):
+            </p>
+            {pairing?.urls.map((u) => <p key={u}><code>{u}</code></p>)}
+            {pairing && !pairing.lan && (
+              <p className="muted">Second device? Start the server with <code>SAFEVTUBE_LAN=1</code> (plus <code>SAFEVTUBE_TLS_KEY</code>/<code>SAFEVTUBE_TLS_CERT</code> — phones only allow camera over HTTPS). See README.</p>
+            )}
+            {pairing?.lan && !pairing.secure && (
+              <p className="err">LAN mode without HTTPS: browsers on other devices will refuse camera access. Set SAFEVTUBE_TLS_KEY / SAFEVTUBE_TLS_CERT.</p>
+            )}
+            <button onClick={resetPairing}>Reset pairing token</button>
+          </>
+        )}
       </section>
 
       <section className="card">

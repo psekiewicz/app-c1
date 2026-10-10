@@ -24,3 +24,8 @@ export function isLocalRequest(req: Pick<IncomingMessage, "headers">): boolean {
   }
   return true;
 }
+
+/** Pages/assets a remote tracker device needs. None of these contain user data. */
+export function isTrackerPublicPath(p: string): boolean {
+  return p === "/tracker.html" || p.startsWith("/assets/") || p.startsWith("/mediapipe/") || p.startsWith("/models/");
+}

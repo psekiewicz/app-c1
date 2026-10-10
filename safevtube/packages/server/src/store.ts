@@ -30,6 +30,10 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (!expressions.length) expressions.push(...DEFAULT_SETTINGS.expressions);
   const def = str(r.defaultExpressionId, 40);
   return {
+    mode: r.mode === "dots" ? "dots" : "png",
+    dotCount: Math.round(num(r.dotCount, 500, 8000, DEFAULT_SETTINGS.dotCount)),
+    dotSize: num(r.dotSize, 0.5, 8, DEFAULT_SETTINGS.dotSize),
+    dotColor: typeof r.dotColor === "string" && /^#[0-9a-fA-F]{6}$/.test(r.dotColor) ? r.dotColor : DEFAULT_SETTINGS.dotColor,
     expressions,
     defaultExpressionId: expressions.some((e) => e.id === def) ? def : expressions[0]!.id,
     talkThreshold: num(r.talkThreshold, 0.001, 1, DEFAULT_SETTINGS.talkThreshold),
@@ -71,4 +75,21 @@ export function saveAsset(buf: Buffer): string | null {
   const name = `${crypto.randomUUID()}.${ext}`;
   fs.writeFileSync(path.join(ASSET_DIR, name), buf);
   return name;
+}
+
+const TOKEN_FILE = path.join(DATA_DIR, "tracker-token");
+/** Pairing secret for a remote tracker device. Persisted so pairing survives restarts. */
+export function trackerToken(): string {
+  try {
+    const t = fs.readFileSync(TOKEN_FILE, "utf8").trim();
+    if (/^[0-9a-f]{32}$/.test(t)) return t;
+  } catch {}
+  const t = crypto.randomBytes(16).toString("hex");
+  fs.writeFileSync(TOKEN_FILE, t, { mode: 0o600 });
+  return t;
+}
+
+export function regenerateTrackerToken(): string {
+  try { fs.unlinkSync(TOKEN_FILE); } catch {}
+  return trackerToken();
 }

@@ -2,15 +2,16 @@ import type { ClientMessage, ServerMessage } from "@safevtube/shared";
 
 /** Auto-reconnecting WebSocket. Callers must treat "disconnected" as unsafe. */
 export function connect(
-  role: "dashboard" | "overlay",
+  role: "dashboard" | "overlay" | "tracker",
   onMessage: (m: ServerMessage) => void,
   onOpen: (open: boolean) => void,
+  query = "",
 ) {
   let ws: WebSocket | null = null;
   let closed = false;
   const open = () => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    ws = new WebSocket(`${proto}://${location.host}/ws`);
+    ws = new WebSocket(`${proto}://${location.host}/ws${query}`);
     ws.onopen = () => {
       ws!.send(JSON.stringify({ type: "hello", role } satisfies ClientMessage));
       onOpen(true);

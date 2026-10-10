@@ -17,6 +17,20 @@ npm run dev      # server :3939 + Vite dev UI :5173 (OBS should still use :3939 
 2. In OBS add a **Browser Source** pointing at `http://127.0.0.1:3939/overlay.html`.
 3. Press **Go live**. The overlay shows your avatar. It is black before this.
 
+## Dot-cloud face mode (camera, with a face-leak guard)
+
+Switch **Avatar mode** to *Dot-cloud face* in the dashboard. A **tracker** page runs MediaPipe Face Landmarker on the camera device and sends only **abstract numbers** (head angles + ~12 expression weights) — never video, never landmark coordinates. The overlay animates a **generic** dot head from those numbers, so your real face shape is never in the stream. Face not detected or tracker offline = black screen.
+
+- **Same PC:** open `http://127.0.0.1:3939/tracker.html?token=…` (URL shown in the dashboard), click *Start camera*.
+- **Second device (recommended — the camera never touches your streaming PC):**
+  ```bash
+  openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj "/CN=safevtube" -keyout key.pem -out cert.pem
+  SAFEVTUBE_LAN=1 SAFEVTUBE_TLS_KEY=key.pem SAFEVTUBE_TLS_CERT=cert.pem npm start
+  ```
+  Open the printed tracker URL on the phone/laptop (accept the self-signed certificate warning; phones only allow camera over HTTPS). On the LAN only `tracker.html` + its static files and the token-protected tracker WebSocket are reachable; the dashboard, API and overlay stay localhost-only. *Reset pairing token* in the dashboard revokes a device.
+- The tracker's camera preview is off by default; it shows only the dot face.
+- Model: MediaPipe `face_landmarker.task` (Apache-2.0) is bundled in `packages/web/public/models`; the WASM runtime is copied from `@mediapipe/tasks-vision` at build time. No CDN needed.
+
 ## Safety model
 
 The overlay shows the avatar only when **all** are true; otherwise it is black:
@@ -25,7 +39,8 @@ The overlay shows the avatar only when **all** are true; otherwise it is black:
 |---|---|
 | Armed | You haven't pressed **Go live** (resets on every page load) |
 | Panic | Panic button / hotkey (default `Escape`) is latched |
-| Mic healthy | Track ended/muted or audio context stopped |
+| Mic healthy (PNG mode) | Track ended/muted or audio context stopped |
+| Face tracked (dots mode) | Tracker offline/stale (>1 s) or no face detected |
 | Dashboard fresh | No frame from the dashboard for 3 s, or its tab closes (instant) |
 | Overlay fresh | Overlay hasn't heard from the server for 2.5 s, or its socket drops |
 

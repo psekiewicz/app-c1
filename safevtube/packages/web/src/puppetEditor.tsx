@@ -1,8 +1,8 @@
 import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  BINDING_PROPS, CONDITION_PRESETS, EMPTY_FACE, PARAM_INFO, PUPPET_PARAMS,
-  type Condition, type FaceParams, type PuppetBinding, type PuppetLayer, type PuppetParam, type Settings,
+  BINDING_PROPS, CONDITION_PRESETS, DEFAULT_PHYSICS, EMPTY_FACE, PARAM_INFO, PHYSICS_PRESETS, PUPPET_PARAMS,
+  type ChainDirection, type Condition, type FaceParams, type PhysicsParams, type PuppetBinding, type PuppetLayer, type PuppetParam, type Settings,
 } from "@safevtube/shared";
 import { uploadAsset } from "./assets";
 import { drawPuppet, layoutOf, loadPuppet, type LoadedPuppet } from "./puppet2d";
@@ -85,6 +85,7 @@ function PuppetEditor() {
   const cv = useRef<HTMLCanvasElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const timer = useRef<number>();
+  const shake = useRef(0);
 
   useEffect(() => { fetch("/api/settings").then((r) => r.json()).then((s: Settings) => { setSettings(s); setSel(s.puppet[0]?.id ?? null); }); }, []);
 
@@ -119,7 +120,12 @@ function PuppetEditor() {
         if (p) {
           const now = performance.now() / 1000;
           let tv = t0;
-          if (d) {
+          const sk = now - shake.current;
+          if (sk >= 0 && sk < 1.8) {
+            const decay = 1 - sk / 1.8;
+            tv = { ...t0, yaw: 28 * Math.sin(sk * 15) * decay, roll: 12 * Math.sin(sk * 11) * decay, pitch: 8 * Math.sin(sk * 9) * decay };
+          }
+          if (d && !(sk >= 0 && sk < 1.8)) {
             const blink = (now % 4) < 0.18 ? 1 : 0;
             tv = { ...NEUTRAL, yaw: 15 * Math.sin(now * 0.8), roll: 6 * Math.sin(now * 0.6), jawOpen: Math.max(0, Math.sin(now * 3)) * 0.7,
               blinkL: blinkOf(now, 0, blink), blinkR: blinkOf(now, 1, blink), lookX: Math.sin(now * 1.1), lookY: Math.cos(now * 0.9) * 0.6, smile: (Math.sin(now * 0.5) + 1) / 2 };
@@ -197,6 +203,7 @@ function PuppetEditor() {
       <div className="panel">
         <canvas ref={cv} className={`stage ${tool !== "none" ? "draw" : ""}`} width={SIZE} height={SIZE} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} />
         {tool !== "none" && <p className="muted">{tool === "pivot" ? "Click the canvas to set the pivot." : "Drag on the canvas to draw the pupil's movement area."}</p>}
+        <div className="row"><button onClick={() => { shake.current = performance.now() / 1000; }}>Shake head (test physics)</button></div>
         <label className="row"><input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} /> Auto demo (blink, talk, look around)</label>
         <label className="row"><input type="checkbox" checked={settings.modelMirror} onChange={(e) => save({ ...settings, modelMirror: e.target.checked })} /> Mirror movement (selfie-style)</label>
         <h3>Test parameters</h3>
@@ -223,7 +230,7 @@ function PuppetEditor() {
               </label>
             )}
             <div className="row">
-              <button onClick={() => setTool("pivot")}>Set pivot (click)</button>
+              <button onClick={() => setTool("pivot")}>{layer.physics ? "Set anchor (click)" : "Set pivot (click)"}</button>
               <span className="muted">{layer.pivotX === undefined ? "head pivot" : `${layer.pivotX.toFixed(2)}, ${layer.pivotY?.toFixed(2)}`}</span>
               {layer.pivotX !== undefined && <button className="small" onClick={() => update(layer.id, { pivotX: undefined, pivotY: undefined })}>reset</button>}
             </div>
@@ -250,6 +257,42 @@ function PuppetEditor() {
                 </div>
               </>
             )}
+
+            <h3>Physics (hair / accessories)</h3>
+            {!layer.pupil && (
+              <label className="row"><input type="checkbox" checked={!!layer.physics} onChange={(e) => update(layer.id, { physics: e.target.checked ? { ...DEFAULT_PHYSICS } : undefined, follow: e.target.checked ? "head" : layer.follow })} /> Sway with head movement</label>
+            )}
+            {layer.physics && (() => {
+              const ph = layer.physics;
+              const up = (patch: Partial<PhysicsParams>) => update(layer.id, { physics: { ...ph, ...patch } });
+              const sl = (k: keyof PhysicsParams, label: string, min: number, max: number, step: number) => (
+                <label>{label} {(ph[k] as number).toFixed(2)}<input type="range" min={min} max={max} step={step} value={ph[k] as number} onChange={(e) => up({ [k]: Number(e.target.value) })} /></label>
+              );
+              return (
+                <>
+                  <p className="muted">Hangs from the anchor (red cross; default = the edge of the image). Click <i>Set pivot</i> above to place the anchor yourself, then press <i>Shake head</i> to test.</p>
+                  <div className="row">
+                    <select value="" onChange={(e) => { const p = PHYSICS_PRESETS[Number(e.target.value)]; if (p) up({ ...p.params }); }}>
+                      <option value="" disabled>Preset…</option>
+                      {PHYSICS_PRESETS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
+                    </select>
+                    <label>Hangs toward
+                      <select value={ph.direction} onChange={(e) => up({ direction: e.target.value as ChainDirection })}>
+                        <option value="down">down (hair, tails)</option><option value="up">up (ahoge, ears)</option><option value="left">left</option><option value="right">right</option>
+                      </select>
+                    </label>
+                  </div>
+                  {sl("segments", "Bend points", 1, 12, 1)}
+                  {sl("stiffness", "Stiffness (Hz)", 0.3, 12, 0.1)}
+                  {sl("damping", "Damping", 0.03, 1.2, 0.01)}
+                  {sl("inertia", "Reaction to movement", 0, 3, 0.05)}
+                  {sl("gravity", "Gravity (0 = rigid, 1 = hangs down)", 0, 1, 0.05)}
+                  {sl("maxAngle", "Max swing (°)", 5, 120, 1)}
+                  {sl("sway", "Idle breeze (°)", 0, 8, 0.1)}
+                  {sl("taper", "Looser toward the tip", 0.6, 1.2, 0.01)}
+                </>
+              );
+            })()}
 
             <h3>Visible only when…</h3>
             <p className="muted">Empty = always visible. E.g. a pupil that hides while that eye is closed.</p>

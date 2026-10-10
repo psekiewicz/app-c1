@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { BINDING_PROPS, DEFAULT_SETTINGS, PUPPET_PARAMS, type BindingProp, type Condition, type Expression, type PuppetBinding, type PuppetLayer, type PuppetParam, type PuppetState, type Settings } from "@safevtube/shared";
+import { BINDING_PROPS, DEFAULT_PHYSICS, DEFAULT_SETTINGS, PUPPET_PARAMS, type BindingProp, type Condition, type Expression, type PuppetBinding, type PuppetLayer, type PuppetParam, type PhysicsParams, type PuppetState, type Settings } from "@safevtube/shared";
 
 export const DATA_DIR = path.resolve(process.env.SAFEVTUBE_DATA ?? "data");
 export const ASSET_DIR = path.join(DATA_DIR, "assets");
@@ -60,6 +60,21 @@ function sanitizeConditions(v: unknown): Condition[] {
     .map((c) => ({ param: c.param as PuppetParam, op: c.op as ">" | "<", value: num(c.value, -1000, 1000, 0) }));
 }
 
+function sanitizePhysics(p: any): PhysicsParams {
+  const d = DEFAULT_PHYSICS;
+  return {
+    direction: ["down", "up", "left", "right"].includes(p?.direction) ? p.direction : d.direction,
+    segments: Math.round(num(p?.segments, 1, 12, d.segments)),
+    stiffness: num(p?.stiffness, 0.2, 15, d.stiffness),
+    damping: num(p?.damping, 0.02, 1.5, d.damping),
+    inertia: num(p?.inertia, 0, 4, d.inertia),
+    gravity: num(p?.gravity, 0, 1, d.gravity),
+    maxAngle: num(p?.maxAngle, 1, 120, d.maxAngle),
+    sway: num(p?.sway, 0, 15, d.sway),
+    taper: num(p?.taper, 0.5, 1.3, d.taper),
+  };
+}
+
 function sanitizeLayer(l: any): PuppetLayer | null {
   const id = safeId(l?.id);
   if (!id) return null;
@@ -77,6 +92,7 @@ function sanitizeLayer(l: any): PuppetLayer | null {
         outMin: num(b.outMin, -5000, 5000, 0), outMax: num(b.outMax, -5000, 5000, 0),
       })),
     visibleWhen: sanitizeConditions(l?.visibleWhen),
+    physics: l?.physics ? sanitizePhysics(l.physics) : undefined,
     follow: l?.follow === "head" ? "head" : "none",
     depth: num(l?.depth, 0, 0.3, 0.03),
     pivotX: typeof l?.pivotX === "number" ? num(l.pivotX, 0, 1, 0.5) : undefined,

@@ -59,6 +59,17 @@ Pick **2D layered puppet** and open the **puppet editor** (`/puppet.html`, linke
 - **Follows the head** with parallax depth and a pivot you click on the canvas.
 - Parameters: head turn/nod/tilt (°), mouth open, blink (each eye), smile, brows, lips pucker, gaze. "Left/right eye" is *your* left/right; *Mirror movement* flips turn, tilt and gaze like a selfie camera.
 
+### Hair & accessory physics
+
+Tick **Sway with head movement** on a layer (long hair, ponytail, ribbon, ahoge, animal ears, earring, scarf — presets included), set its **anchor** by clicking the canvas, and press **Shake head** to test.
+
+- The layer is cut into 1–12 bendable bands hanging from the anchor; each band is pulled toward its parent by a damped spring, so motion cascades down the chain (whip / follow-through).
+- **Gravity follows head tilt:** tilt your head and the hair keeps hanging down in the world (`Gravity` 0 = rigid with the head, 1 = always hangs down).
+- **Inertia comes from the real on-screen motion of the anchor** (turn, nod, tilt and breathing all push it), not from a single hard-coded signal.
+- Fixed 120 Hz sub-stepping: identical feel at 30 or 144 fps, stable after a stall; physics resets when the face is lost so it never snaps when you come back.
+- Idle breeze, per-segment looseness (`taper`), swing limit, and chains in any of four directions. Covered by unit tests (`npm test`).
+- Limits: bands rotate rather than a true mesh warp (use 6+ bend points for smooth hair); no collisions between layers.
+
 Not Live2D itself (its runtime/format is proprietary and can't be bundled), but the same idea: parameters drive layers. Missing images or a lost face mean a black screen, like every other mode.
 
 ## Safety model

@@ -1,3 +1,4 @@
+import type { PhysicsParams } from "./physics";
 import type { FaceParams } from "./types";
 
 /**
@@ -54,6 +55,8 @@ export interface PuppetLayer {
   /** Rotation/scale pivot for bindings, as a fraction of the canvas. Default: the head pivot. */
   pivotX?: number;
   pivotY?: number;
+  /** Hair/accessory physics: the layer sways with head movement. */
+  physics?: PhysicsParams;
   /** When set, the layer's image is a pupil positioned inside `area` by the gaze. */
   pupil?: { area: PupilArea; clip: boolean; scale: number };
 }

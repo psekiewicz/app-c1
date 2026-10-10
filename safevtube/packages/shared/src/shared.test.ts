@@ -86,3 +86,50 @@ test("pupil stays inside its elliptical area", () => {
   const p = pupilPosition(a, 1, 1); // corner of the box is outside the ellipse -> pulled in
   assert.ok(((p.x - 120) / 20) ** 2 + ((p.y - 110) / 10) ** 2 <= 1.0001);
 });
+
+import { ChainSim, AnchorTracker, DEFAULT_PHYSICS } from "./index";
+
+test("chain settles to rest, and hangs straight down when the head tilts (gravity)", () => {
+  const s = new ChainSim({ ...DEFAULT_PHYSICS, gravity: 1, sway: 0 });
+  for (let i = 0; i < 600; i++) s.step(1 / 60, 0, 0.3, 0);
+  assert.ok(s.angle.every((a) => Math.abs(a + 0.3) < 0.01), "world-hanging: counter-rotates by -roll");
+  const rigid = new ChainSim({ ...DEFAULT_PHYSICS, gravity: 0, sway: 0 });
+  for (let i = 0; i < 600; i++) rigid.step(1 / 60, 0, 0.3, 0);
+  assert.ok(rigid.angle.every((a) => Math.abs(a) < 0.01), "gravity 0 stays rigid with the head");
+});
+
+test("push makes the chain swing, overshoot, then decay; tip lags the root", () => {
+  const s = new ChainSim({ ...DEFAULT_PHYSICS, sway: 0, damping: 0.15 });
+  let peak = 0, sawNegative = false;
+  for (let i = 0; i < 90; i++) { s.step(1 / 60, i < 6 ? 60 : 0, 0, 0); peak = Math.max(peak, s.angle[0]!); if (s.angle[0]! < -0.005) sawNegative = true; }
+  assert.ok(peak > 0.05 && sawNegative, "swings out and back");
+  for (let i = 0; i < 600; i++) s.step(1 / 60, 0, 0, 0);
+  assert.ok(Math.abs(s.angle[0]!) < 0.005, "decays to rest");
+});
+
+test("simulation is frame-rate independent and stable after a stall", () => {
+  const run = (fps: number) => {
+    const s = new ChainSim({ ...DEFAULT_PHYSICS, sway: 0 });
+    for (let i = 0; i < fps * 0.5; i++) s.step(1 / fps, 40, 0, 0);
+    return s.angle[2]!;
+  };
+  assert.ok(Math.abs(run(30) - run(144)) < 0.02);
+  const s = new ChainSim(DEFAULT_PHYSICS);
+  s.step(5, 1e6, 0, 0); // huge dt + absurd drive must not blow up
+  assert.ok(s.angle.every((a) => Number.isFinite(a) && Math.abs(a) <= (DEFAULT_PHYSICS.maxAngle * Math.PI) / 180 + 1e-9));
+});
+
+test("angle limit is respected", () => {
+  const s = new ChainSim({ ...DEFAULT_PHYSICS, maxAngle: 10 });
+  for (let i = 0; i < 120; i++) s.step(1 / 60, 500, 0, 0);
+  assert.ok(s.angle.every((a) => a <= (10 * Math.PI) / 180 + 1e-9));
+});
+
+test("anchor tracker recovers acceleration of a moving point", () => {
+  const t = new AnchorTracker(0.01);
+  let a = 0;
+  for (let i = 0; i < 120; i++) { const tt = i / 60; a = t.update(0.5 * 1000 * tt * tt, 0, 1 / 60).ax; }
+  assert.ok(Math.abs(a - 1000) < 150, `got ${a}`);
+  const r = new AnchorTracker();
+  assert.deepEqual(r.update(0, 0, 0.016), { ax: 0, ay: 0 });
+});

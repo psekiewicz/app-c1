@@ -16,7 +16,7 @@ function DotFace({ out }: { out: OverlayOutput }) {
       const o = latest.current;
       if (c && ctx && o.face) {
         if (c.width !== c.clientWidth || c.height !== c.clientHeight) { c.width = c.clientWidth; c.height = c.clientHeight; }
-        drawDots(ctx, dots, o.face, c.width, c.height, o.settings.dotColor, o.settings.dotSize);
+        drawDots(ctx, dots, o.face, c.width, c.height, o.settings.dotColor, o.settings.dotSize, performance.now() / 1000);
       }
       raf = requestAnimationFrame(loop);
     };

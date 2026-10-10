@@ -17,6 +17,10 @@ npm run dev      # server :3939 + Vite dev UI :5173 (OBS should still use :3939 
 2. In OBS add a **Browser Source** pointing at `http://127.0.0.1:3939/overlay.html`.
 3. Press **Go live**. The overlay shows your avatar. It is black before this.
 
+## Desktop app (global hotkeys)
+
+`cd desktop && npm install && npm start` runs the server and dashboard in an Electron window with OS-wide panic/expression hotkeys (`Ctrl/Cmd+Alt+key`). See `desktop/README.md`.
+
 ## Dot-cloud face mode (camera, with a face-leak guard)
 
 Switch **Avatar mode** to *Dot-cloud face* in the dashboard. A **tracker** page runs MediaPipe Face Landmarker on the camera device and sends only **abstract numbers** (head angles + ~12 expression weights) — never video, never landmark coordinates. The overlay animates a **generic** dot head from those numbers, so your real face shape is never in the stream. Face not detected or tracker offline = black screen.
@@ -54,6 +58,6 @@ The decision lives in `packages/shared/src/safety.ts` (unit-tested) and is enfor
 
 ## Known limits / roadmap
 
-- Hotkeys work only while the dashboard window is focused (browser limitation). An Electron/Tauri wrapper would add global hotkeys.
+- In the browser, hotkeys work only while the dashboard window is focused; use the desktop app for global hotkeys.
 - Keep the dashboard tab open (not minimised); an active mic keeps it from being throttled in most browsers.
 - Ideas: blink/bounce presets, multi-layer avatars, Twitch redeems (needs OAuth), OBS WebSocket scene switching.

@@ -114,4 +114,6 @@ export interface DashboardStatus {
 
 export type ClientHello = { type: "hello"; role: "dashboard" | "overlay" | "tracker" };
 export type ClientMessage = ClientHello | DashboardFrame | TrackerFrame;
-export type ServerMessage = OverlayOutput | DashboardStatus | { type: "settings"; settings: Settings };
+/** Remote control from the desktop app (global hotkeys). Deliberately cannot "go live" or clear panic. */
+export type ControlMessage = { type: "control"; action: "panic" } | { type: "control"; action: "expression"; id: string };
+export type ServerMessage = OverlayOutput | DashboardStatus | ControlMessage | { type: "settings"; settings: Settings };

@@ -1,0 +1,14 @@
+{
+  "name": "safevtube-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop shell for SafeVtube: runs the server, opens the dashboard, adds global hotkeys.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "npm --prefix .. run build && electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.2.0"
+  },
+  "license": "MIT"
+}

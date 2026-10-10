@@ -133,6 +133,16 @@ app.post("/api/pairing/reset", (_req, res) => {
   res.json({ lan: LAN, secure: !!(TLS_KEY && TLS_CERT), urls: pairingUrls() });
 });
 
+// Used by the desktop app's global hotkeys. Only safe actions: panic (black out) and switching expression.
+app.post("/api/control", express.json({ limit: "1kb" }), (req, res) => {
+  const { action, id } = req.body ?? {};
+  if (action === "panic") dashboards.forEach((ws) => send(ws, { type: "control", action: "panic" }));
+  else if (action === "expression" && typeof id === "string" && settings.expressions.some((e) => e.id === id))
+    dashboards.forEach((ws) => send(ws, { type: "control", action: "expression", id }));
+  else return void res.status(400).json({ error: "Unknown action" });
+  res.json({ ok: true });
+});
+
 app.get("/api/settings", (_req, res) => res.json(settings));
 app.put("/api/settings", express.json({ limit: "256kb" }), (req, res) => {
   settings = sanitizeSettings(req.body);

@@ -64,7 +64,7 @@ function Tracker() {
     const draw = setInterval(() => {
       const cv = canvas.current;
       const ctx = cv?.getContext("2d");
-      if (cv && ctx) drawDots(ctx, dots, face.current, cv.width, cv.height, "#7df9ff", 2);
+      if (cv && ctx) drawDots(ctx, dots, face.current, cv.width, cv.height, "#7df9ff", 2, performance.now() / 1000);
     }, 33);
     return () => (c.close(), clearInterval(t), clearInterval(draw));
   }, []);

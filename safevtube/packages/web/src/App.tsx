@@ -43,6 +43,10 @@ export function App() {
       (m) => {
         if (m.type === "status") setStatus(m);
         else if (m.type === "settings") setSettings(m.settings);
+        else if (m.type === "control") {
+          if (m.action === "panic") setPanic(true);
+          else setExpressionId(m.id);
+        }
       },
       (open) => {
         setWsOpen(open);

@@ -1,0 +1,20 @@
+{
+  "name": "safevtube",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Safe-by-default PNGtuber/VTuber toolkit: mic-reactive avatars, expression hotkeys, OBS overlay, Twitch chat triggers.",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @safevtube/server\" \"npm run dev -w @safevtube/web\"",
+    "build": "npm run build -w @safevtube/web",
+    "start": "npm run build && npm run start -w @safevtube/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test -w @safevtube/shared"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "typescript": "^5.6.3"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}

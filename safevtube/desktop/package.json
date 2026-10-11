@@ -8,7 +8,7 @@
     "start": "npm --prefix .. run build && electron ."
   },
   "devDependencies": {
-    "electron": "^33.2.0"
+    "electron": "^44.7.0"
   },
   "license": "MIT"
 }

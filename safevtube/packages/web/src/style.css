@@ -1,0 +1,35 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+body { margin: 0; background: #14141a; color: #e8e8f0; }
+main { max-width: 900px; margin: 0 auto; padding: 16px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.card { background: #1d1d27; border-radius: 10px; padding: 16px; margin: 16px 0; }
+h1, h2 { margin: 0 0 8px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin: 8px 0; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+input, select, button { background: #2a2a38; color: inherit; border: 1px solid #3a3a4c; border-radius: 6px; padding: 6px 10px; font: inherit; }
+button { cursor: pointer; } button:disabled { opacity: .5; cursor: default; }
+.go { background: #2b6cb0; } .panic { background: #b02b2b; }
+.badge { padding: 6px 12px; border-radius: 20px; font-weight: 700; }
+.badge.live { background: #1f7a3d; } .badge.dark { background: #000; border: 1px solid #555; }
+.muted { color: #9a9ab0; font-size: 13px; } .ok { color: #5fd38a; } .bad, .err { color: #ff8080; }
+.meter { position: relative; height: 12px; background: #2a2a38; border-radius: 6px; margin: 8px 0; overflow: hidden; }
+.fill { height: 100%; background: #5fd38a; } .thr { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; }
+.expr { border: 1px solid #2a2a38; border-radius: 8px; padding: 8px; margin: 8px 0; } .expr.active { border-color: #2b6cb0; }
+.up img { max-height: 64px; max-width: 96px; object-fit: contain; background: #000; }
+code { background: #2a2a38; padding: 2px 6px; border-radius: 4px; }
+
+a.btn { display: inline-block; background: #2b6cb0; color: #fff; padding: 8px 14px; border-radius: 6px; text-decoration: none; }
+.editor { display: grid; grid-template-columns: 220px minmax(320px, 1fr) 360px; gap: 12px; padding: 12px; align-items: start; }
+@media (max-width: 1100px) { .editor { grid-template-columns: 1fr; } }
+.layers .item { display: flex; gap: 6px; align-items: center; padding: 6px; border-radius: 6px; cursor: pointer; }
+.layers .item.sel { background: #2b3a55; }
+.layers .item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel { background: #1d1d27; border-radius: 10px; padding: 12px; }
+.panel h3 { margin: 12px 0 6px; font-size: 14px; }
+.panel .sub { border: 1px solid #2a2a38; border-radius: 8px; padding: 8px; margin: 6px 0; }
+.num { width: 64px; }
+.stage { background: #000; border-radius: 8px; width: 100%; aspect-ratio: 1; display: block; cursor: default; }
+.stage.draw { cursor: crosshair; }
+.thumb { height: 36px; max-width: 64px; object-fit: contain; background: #000; border-radius: 4px; }
+button.small { padding: 2px 8px; font-size: 12px; }
+label.row { flex-direction: row; align-items: center; }
